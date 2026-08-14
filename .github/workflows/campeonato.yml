@@ -1,0 +1,38 @@
+name: Compilar Campeonato Windows
+
+on:
+  push:
+    tags:
+      - 'v*'              # cria release a cada tag v1.0.0, v1.0.1, ...
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write      # precisa para criar o Release e anexar o .exe
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Compilar .exe
+        run: |
+          python -m PyInstaller --clean --noconfirm campeonato_misto.spec
+
+      - name: Criar/atualizar Release e anexar .exe
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist/campeonato_misto.exe
+          generate_release_notes: true
