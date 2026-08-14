@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campeonato - Tenis de Mesa</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#0f172a;color:#e2e8f0}
+header{background:#1e293b;padding:14px 20px;font-weight:bold;font-size:20px}
+main{max-width:960px;margin:20px auto;padding:0 16px}
+.card{background:#1e293b;border-radius:12px;padding:16px;margin:16px 0}
+.card h2{margin:0 0 12px;font-size:16px;color:#93c5fd}
+input,select,button,textarea{padding:8px 10px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px}
+button{cursor:pointer;background:#2563eb;border-color:#2563eb;font-weight:bold}
+button.alt{background:#475569;border-color:#475569}
+button.danger{background:#b91c1c;border-color:#b91c1c}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:6px 8px;text-align:center;border-bottom:1px solid #334155}
+th{color:#93c5fd}
+.jogo{border:1px solid #334155;border-radius:10px;padding:10px;margin:8px;display:inline-block;min-width:180px;vertical-align:top}
+.jogo b{display:block;padding:4px}
+.venc{color:#facc15}
+.bye{color:#64748b}
+.aviso{background:#7f1d1d;padding:10px;border-radius:8px;margin:12px 0;font-weight:bold}
+#aviso{display:none}
+label{display:block;margin:8px 0}
+input,select{margin:4px}
+.wrap{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+textarea{width:100%;resize:vertical}
+.gr{display:flex;flex-wrap:wrap;gap:12px}
+.gr>.gc{flex:1 1 calc(50% - 6px);min-width:280px;box-sizing:border-box}
+.gj{display:inline-block;background:#334155;padding:4px 8px;border-radius:6px;margin:3px;cursor:grab}
+.gj:hover{background:#475569}
+.gj-drag{opacity:.4}
+.gslot{display:inline-block;width:8px;height:30px;vertical-align:middle;margin:0 -2px;border-radius:4px;transition:width .1s}
+.gslot.over{width:22px;background:#93c5fd22;border:2px dashed #93c5fd}
+.gc{border:2px dashed transparent}
+.gc.over{border-color:#93c5fd;background:#1e3a8a22}
+tr.cla td{background:#1e3a8a;color:#facc15;font-weight:bold}
+.area{border:1px solid #334155;border-radius:8px;padding:10px;margin:12px 0}
+.bracket{position:relative;overflow-x:auto;margin:6px 0}
+.bracket .mcard{position:absolute;border:1px solid #334155;border-radius:6px;background:#1e293b;overflow:hidden}
+.bracket .mcard .j{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 8px;font-size:13px;white-space:nowrap}
+.bracket .mcard .j span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.bracket .mcard .j+.j{border-top:1px solid #334155}
+.bracket .mcard .j.win{color:#facc15;font-weight:bold}
+.bracket .linha{position:absolute;background:#64748b;pointer-events:none}
+.bracket .campeao{position:absolute;border:2px solid #facc15;border-radius:6px;background:#1e293b;color:#facc15;font-weight:bold;display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px;white-space:normal;word-break:break-word;line-height:1.15;padding:4px 6px;overflow:hidden}
+</style>
+</head>
+<body>
+<header>CAMPEONATO DE TENIS DE MESA</header>
+<main>
+  <div id="aviso" class="aviso"></div>
+
+  <div class="card">
+    <h2>1. JOGADORES</h2>
+    <div class="area">
+      <label style="color:#93c5fd">JOGADORES (separe por virgula)
+        <textarea id="jogadores" rows="4" placeholder="ANA, BRUNO, CARLOS, DIANA"></textarea>
+      </label>
+<div style="margin-top:8px">
+      <label style="color:#93c5fd">Importar lista (CSV, TXT ou Excel .xlsx)
+        <input type="file" id="fileImport" accept=".csv,.txt,.tsv,.xlsx" onchange="importarArquivo(this,'jogadores')">
+      </label>
+    </div>
+    <div class="wrap" style="margin-top:8px">
+      <input id="novoJogador" placeholder="Incluir jogador apos cadastro..." style="flex:1;min-width:180px">
+      <button id="btnIncluir" onclick="incluirJogador()">Incluir Jogador</button>
+    </div>
+  </div>
+    <div class="area">
+      <label style="color:#93c5fd">RANKING/POSICOES (cole a planilha: melhor primeiro) - opcional
+        <textarea id="ranking" rows="4" oninput="this.dataset.tocado='1'" placeholder="OPCIONAL - Ranking/Cabecas de chave (melhor primeiro). Deixe vazio para serpentina na ordem de cadastro; preencha so se quiser separar os favoritos para nao se enfrentarem cedo."></textarea>
+      </label>
+      <div style="margin-top:4px">
+        <label style="color:#93c5fd">Importar lista (CSV, TXT ou Excel .xlsx)
+          <input type="file" id="fileImportRanking" accept=".csv,.txt,.tsv,.xlsx" onchange="importarArquivo(this,'ranking')">
+        </label>
+      </div>
+    </div>
+    <div class="wrap" style="margin-top:8px">
+      <button id="btnCadastrar" onclick="salvarJogadores()">Cadastrar Jogadores</button>
+      <button class="danger" onclick="zerar()">CANCELAR CAMPEONATO</button>
+    </div>
+    <div id="semJogadores" style="display:none;color:#c4b5fd;background:#3b0764;border:1px dashed #a21caf;padding:8px 10px;border-radius:8px;margin-top:10px;font-size:13px">Cadastre os jogadores acima para liberar o Modo, o Iniciar Campeonato e o Registro de partidas.</div>
+  </div>
+
+  <div class="card" id="cardModo">
+    <h2>2. MODO</h2>
+    <div class="wrap">
+      <button id="btnGrupos" onclick="setModo('grupos')">Grupos</button>
+      <button id="btnMisto" onclick="setModo('misto')">Misto - Grupos + Ouro/Prata</button>
+      <button id="btnChave" onclick="setModo('chave')">Chaveamento - Simples Eliminatoria</button>
+      <button id="btnAbsoluto" onclick="setModo('absoluto')">Chaveamento - Dupla Eliminatoria</button>
+    </div>
+    <div class="wrap" style="margin-top:8px">
+      <span id="wrapFormatoGrupos"><label style="color:#93c5fd">Fase de grupos:
+        <select id="selFormatoGrupos" onchange="setFormato('grupos',this.value)">
+          <option value="0">Livre</option>
+          <option value="1">Melhor de 1 (1 set)</option>
+          <option value="3">Melhor de 3</option>
+          <option value="5">Melhor de 5</option>
+          <option value="7">Melhor de 7</option>
+        </select>
+      </label></span>
+      <label style="color:#93c5fd"><span id="lblFormatoMata">Mata-mata</span>:
+        <select id="selFormatoMata" onchange="setFormato('mata',this.value)">
+          <option value="0">Livre</option>
+          <option value="1">Melhor de 1 (1 set)</option>
+          <option value="3">Melhor de 3</option>
+          <option value="5">Melhor de 5</option>
+          <option value="7">Melhor de 7</option>
+        </select>
+      </label>
+      <label style="color:#facc15"><span id="lblFormatoFinal">Final</span>:
+        <select id="selFormatoFinal" onchange="setFormato('final',this.value)">
+          <option value="0">Livre</option>
+          <option value="1">Melhor de 1 (1 set)</option>
+          <option value="3">Melhor de 3</option>
+          <option value="5">Melhor de 5</option>
+          <option value="7">Melhor de 7</option>
+        </select>
+      </label>
+      <label style="color:#93c5fd">Distribuicao
+        <select class="selDistAll" id="selDist" onchange="mudarDistribuicao(this.value)">
+          <option value="serpentina" selected>Serpentina</option>
+          <option value="sorteio">Sorteio</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="card" id="cardGrupos" style="display:none">
+    <h2>GRUPOS</h2>
+    <div id="gruposControles">
+      <div class="wrap">
+        <label style="color:#93c5fd">Numero de grupos
+          <input id="numGrupos" type="number" min="2" max="16" value="4" style="width:70px" onchange="criarGrupos()">
+        </label>
+        <button id="btnCriarGrupos" onclick="criarGrupos()">Criar Grupos</button>
+        <label style="color:#93c5fd">Avancam por grupo
+          <select id="selAvancar" onchange="setAvancar(this.value)">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </label>
+      </div>
+      <div style="margin-top:8px;color:#94a3b8;font-size:13px">
+        Arraste e solte um jogador em outro grupo para movê-lo.
+      </div>
+    </div>
+    <div class="gr" id="gruposBox" style="margin-top:12px"></div>
+    <div id="gruposElim" style="display:none;margin-top:16px;border-top:2px solid #334155;padding-top:12px"></div>
+    <div class="wrap" style="margin-top:10px" id="btnProsseguir">
+      <button class="btn" style="background:#16a34a;font-weight:bold" onclick="gerarChave()">Prosseguir - Gerar Chave de Eliminatoria</button>
+    </div>
+  </div>
+
+  <div class="card" id="cardChamada">
+    <h2>COMO CHAMAR OS JOGOS NAS MESAS</h2>
+    <div class="wrap" style="margin-bottom:6px">
+      <label style="color:#93c5fd">Modo de chamada
+        <select id="selModoChamada" onchange="mudarModoChamada()">
+          <option value="auto">AUTO — qualquer mesa livre chama o proximo jogo</option>
+          <option value="grupos">POR GRUPO — cada mesa chama so os jogos do grupo escolhido</option>
+          <option value="manual">MANUAL — todas as mesas ociosas, chamadas so pelo administrador</option>
+        </select>
+      </label>
+    </div>
+    <p id="explicaChamada" style="color:#94a3b8;font-size:12px;margin:2px 0 8px"></p>
+    <div id="wrapMesaGrupo" style="display:none;margin:6px 0">
+      <table><thead><tr><th>Mesa</th><th>Grupo que vai chamar</th></tr></thead><tbody id="corpoMesaGrupo"></tbody></table>
+      <small style="color:#94a3b8">Mesa sem grupo escolhido fica OCIOSA e so recebe jogo por chamada manual.</small>
+    </div>
+    <small style="color:#94a3b8">Configure aqui ANTES de iniciar o campeonato. Depois, cada mesa livre mostra o status e o botao "Chamar jogo" para o administrador escolher o confronto manualmente.</small>
+  </div>
+
+  <div class="card">
+    <h2>MESA DA GRANDE FINAL</h2>
+    <div class="wrap">
+      <select id="mesaFinal" onchange="setMesaFinal(this.value)"></select>
+      <small>Escolha a mesa que vai disputar a grande final. Em AUTO, qualquer mesa livre a joga.</small>
+    </div>
+  </div>
+
+  <div class="card" id="cardIniciar">
+    <h2>▶ INICIAR CAMPEONATO</h2>
+    <p id="iniciarAviso" style="color:#fbbf24;margin:4px 0">Enquanto o campeonato nao for iniciado, NENHUM jogo e chamado ao placar das mesas. Ajuste modo, grupos, formatos e distribuicao ANTES de iniciar.</p>
+    <div class="wrap" style="margin-top:8px">
+      <button id="btnIniciar" class="btn" style="background:#16a34a;font-weight:bold" onclick="iniciar()">▶ COMEÇAR CAMPEONATO</button>
+    </div>
+    <p id="iniciarStatus" style="font-weight:bold;margin-top:8px"></p>
+  </div>
+
+  <div class="card" id="cardRegist">
+    <h2>3. REGISTRAR PARTIDA (manual)</h2>
+    <div class="wrap" id="selGrupoWrap" style="display:none">
+      <label style="color:#93c5fd">Grupo
+        <select id="selGrupo" onchange="selGrupoAtualizado()"></select>
+      </label>
+    </div>
+    <form onsubmit="event.preventDefault();registrarManual()">
+    <div class="wrap" style="margin-top:8px">
+      <select id="selA" onchange="selAAtualizado()"></select>
+      <span>x</span>
+      <select id="selB" onchange="selBAtualizado()"></select>
+      <input id="setsText" type="text" placeholder="sets ex: 11x9, 11x8, 9x11, 11x6" style="width:230px">
+      <button type="submit">Registrar</button>
+    </div>
+    </form>
+  </div>
+
+  <div id="modoAbsoluto" style="display:none">
+    <div class="card">
+      <h2>CHAVE (Dupla Eliminatoria)</h2>
+      <div class="wrap" style="margin-bottom:8px">
+        <button class="btnSortear" onclick="gerarChave()">Sortear Chave</button>
+      </div>
+      <div id="duplaBrack"></div>
+    </div>
+  </div>
+
+  <div id="modoChave" style="display:none">
+    <div class="card">
+      <h2>CHAVE (Simples Eliminatoria)</h2>
+      <div class="wrap" style="margin-bottom:8px">
+        <button class="btnSortear" onclick="gerarChave()">Sortear Chave</button>
+      </div>
+      <div id="rodadas"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>ULTIMAS PARTIDAS</h2>
+    <table><thead><tr><th>Jogador A</th><th>Sets</th><th>Jogador B</th><th>Vencedor</th><th>Formato</th><th>Data</th><th>Ações</th></tr></thead><tbody id="partidas"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>PARTIDA CHAMADA</h2>
+    <table><thead><tr><th>Jogador A</th><th>Jogador B</th><th>Mesa</th><th>Chamada em</th></tr></thead><tbody id="partidaChamada"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>MESAS ONLINE</h2>
+    <table><thead><tr><th>Mesa</th><th>IP no roteador</th><th>Bateria</th><th>Atualizado</th><th>Status</th><th></th></tr></thead><tbody id="mesasOnline"></tbody></table>
+    <div id="chamarPanel" style="display:none;margin-top:10px;border-top:2px solid #334155;padding-top:8px">
+      <b id="chamarTitulo" style="color:#facc15"></b>
+      <div id="chamarLista" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>EXPORTACAO</h2>
+    <div class="wrap">
+      <button onclick="exportarExcel()">Exportar Excel (.xlsx)</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>BATERIAS DAS MESAS</h2>
+    <table><thead><tr><th>Mesa</th><th>Carga</th><th>Voltagem</th><th>Status</th><th>Atualizado</th></tr></thead><tbody id="baterias"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>RENOMEAR MESAS (remoto)</h2>
+    <table id="tblRenomear"><thead><tr><th>Mesa atual</th><th>Novo nome</th><th></th></tr></thead><tbody id="corpoRenomear"></tbody></table>
+    <small>Renomeia direto na placa (WiFi novo = Mesa 01, Mesa 02...). A mesa fica offline por ~2s ao trocar o nome.</small>
+  </div>
+</main>
+<script>
+async function get(){return (await fetch('/api/estado')).json()}
+async function post(url,body){await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})})}
+function setMesaFinal(v){post('/api/mesa_final',{mesa:v})}
+function mudarModoChamada(){
+  var modo=document.getElementById('selModoChamada').value;
+  var ex=document.getElementById('explicaChamada');
+  ex.textContent=modo==='auto'
+    ?'Cada mesa que estiver livre chama automaticamente o proximo jogo pendente, sem precisar de ninguem escolher.'
+    :(modo==='grupos'
+      ?'Voce escolhe qual grupo cada mesa chama. So jogos daquele grupo serao chamados naquela mesa (ideal quando cada grupo joga em mesas fixas).'
+      :'Nenhuma mesa recebe jogo sozinha. Todas ficam OCIOSAS e o administrador usa o botao "Chamar jogo" para mandar qualquer confronto para qualquer mesa.');
+  document.getElementById('wrapMesaGrupo').style.display=modo==='grupos'?'block':'none';
+  var mg={};
+  if(modo==='grupos'){
+    document.querySelectorAll('#corpoMesaGrupo select').forEach(function(s){
+      if(s.value!=='')mg[s.getAttribute('data-mesa')]=parseInt(s.value,10);
+    });
+  }
+  post('/api/chamada',{modo:modo,mesa_grupo:mg});
+}
+function chamarJogo(mesa){
+  var p=document.getElementById('chamarPanel');
+  p.style.display='block';
+  document.getElementById('chamarTitulo').textContent='Escolha o confronto para a mesa '+mesa+':';
+  var lista=document.getElementById('chamarLista');
+  lista.innerHTML='';
+  var d=window.__estado;
+  var vistos={};
+  var grupos=d.pares_pendentes||[];
+  grupos.forEach(function(par){
+    var a=par[0],b=par[1];
+    if(vistos[[a,b].sort().join('|')])return;
+    vistos[[a,b].sort().join('|')]=1;
+    var g=d.grupos&&d.grupos.length?grupoDoPar(d,a,b):0;
+    var rotulo=(d.grupos&&d.grupos.length)?(d.grupos[g]?d.grupos[g].nome+' · ':'')+(a+' x '+b):(a+' x '+b);
+    var bt=document.createElement('button');
+    bt.textContent=rotulo;
+    bt.onclick=function(){enviarChamada(mesa,a,b)};
+    lista.appendChild(bt);
+  });
+  if(!grupos.length)lista.innerHTML='<span class="bye">Nenhum confronto pendente.</span>';
+}
+function grupoDoPar(d,a,b){
+  var g=(d.grupos||[]).map(function(gg,ii){return gg.jogadores.indexOf(a)>=0&&gg.jogadores.indexOf(b)>=0?ii:-1});
+  for(var i=0;i<g.length;i++)if(g[i]>=0)return g[i];
+  return -1;
+}
+function fecharChamar(){document.getElementById('chamarPanel').style.display='none'}
+async function enviarChamada(mesa,a,b){
+  var r=await fetch('/api/chamar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mesa:mesa,A:a,B:b})});
+  var j=await r.json();
+  alert(j.ok?('Jogo '+a+' x '+b+' enviado para '+mesa+'!'):(j.erro||'Falha ao chamar.'));
+  if(j.ok)fecharChamar();
+  atualizar();
+}
+async function cancelarChamada(mesa){
+  if(!confirm('Cancelar a chamada da mesa '+mesa+'?'))return;
+  await post('/api/cancelar_chamada',{mesa:mesa});
+  atualizar();
+}
+function preencherRenomear(b){var m=b.getAttribute('data-mesa');document.getElementById('renomear_novo_'+m).value='';document.getElementById('renomear_novo_'+m).focus()}
+async function renomearMesa(b){
+  var m=b.getAttribute('data-mesa');
+  var novo=document.getElementById('renomear_novo_'+m).value.trim();
+  if(!novo){alert('Digite o novo nome da mesa.');return}
+  var r=await (await fetch('/api/renomear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mesa:m,nome:novo})})).json();
+  alert(r.ok?('Mesa renomeada para '+novo):('Erro: '+(r.erro||'?')));
+  atualizar();
+}
+function mostraAviso(m){if(m){var a=document.getElementById('aviso');a.textContent=m;a.style.display='block'}else{document.getElementById('aviso').style.display='none'}}
+var salvosJ='',selGrupoIdx=-1,selANome='',selBNome='',listaAtual=[],renderCache={},sigSeletores='',paresPendentes=[],modoAtual='',emNomes={};
+function render(id,html){if(renderCache[id]===html)return;renderCache[id]=html;var el=document.getElementById(id),sc=el.querySelector('.bracket');var scL=sc?sc.scrollLeft:0;el.innerHTML=html;var sc2=el.querySelector('.bracket');if(sc2)sc2.scrollLeft=scL}
+async function salvarJogadores(){
+  var ej=document.getElementById('jogadores');
+  var nomes=ej.value.split(/[\n,;\t\r]+/).map(function(x){return x.trim()}).filter(Boolean);
+  if(!nomes.length){alert('Nenhum jogador para cadastrar.');return}
+  salvosJ=ej.value;
+  await post('/api/jogadores',{jogadores:ej.value,ranking:document.getElementById('ranking').value});
+  await autoSerpentina();
+  alert(nomes.length+' jogador(es) cadastrado(s).');
+  atualizar();
+}
+async function incluirJogador(){
+  var imp=document.getElementById('novoJogador');
+  var nome=(imp.value||'').trim().toUpperCase();
+  if(!nome){alert('Digite o nome do jogador a incluir.');return}
+  var r=await (await fetch('/api/incluir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jogador:nome})})).json();
+  if(!r.ok){alert(r.erro||'Erro ao incluir jogador.');return}
+  imp.value='';
+  var d=await get();
+  if(!(d.jogadores||[]).some(function(x){return x===nome})){alert('Erro: jogador nao foi incluido.');return}
+  await autoSerpentina();
+  alert(nome+' incluido. Distribuicao atualizada.');
+  atualizar();
+}
+function parseNomesCSV(texto){
+  // separa por virgula, ponto e virgula, tab ou quebra de linha
+  var lista=texto.split(/[\n,;\t\r]+/).map(function(x){return x.trim()}).filter(Boolean);
+  var vistos={},unico=[];
+  lista.forEach(function(n){if(!vistos[n]){vistos[n]=1;unico.push(n)}});
+  return unico;
+}
+function aplicarNomesImportados(nomes,targetId){
+  if(!nomes.length){alert('Nenhum nome encontrado no arquivo.');return}
+  var el=document.getElementById(targetId);
+  el.value=nomes.join(', ');
+  el.dataset.tocado='1';
+  if(targetId==='jogadores')salvosJ='';
+  alert(nomes.length+' nome(s) importado(s). Revise e clique em Cadastrar.');
+}
+function carregarSheetJS(cb){
+  if(typeof XLSX!=='undefined'){cb();return}
+  var s=document.createElement('script');
+  s.src='/xlsx.min.js';
+  s.onload=cb;
+  s.onerror=function(){alert('Erro ao carregar a biblioteca de Excel.');document.getElementById('fileImport').value='';document.getElementById('fileImportRanking').value=''};
+  document.head.appendChild(s);
+}
+function exportarExcel(){
+  carregarSheetJS(function(){
+    get().then(function(d){
+      var wb=XLSX.utils.book_new();
+      var c=[['#','Jogador','J','V','D','Sets+','Sets-','Pts+','Pts-','Pontos']];
+      (d.classificacao||[]).forEach(function(r,i){c.push([i+1,r.nome,r.J,r.V,r.D,r.SetP,r.SetC,r.PontoP,r.PontoC,r.Pont])});
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(c),'Classificacao');
+      var g=[['Grupo','#','Jogador','Pts','V','Sets+','Sets-','Pts+','Pts-']];
+      (d.grupos||[]).forEach(function(gr){gr.classificacao.forEach(function(r,i){g.push([gr.nome,i+1,r.nome,r.Pont,r.V,r.SetP,r.SetC,r.PontoP,r.PontoC])})});
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(g),'Grupos');
+      var r=[['Fase','Jogador A','Sets A','Sets B','Jogador B','Vencedor']];
+      (d.rodadas||[]).forEach(function(rd){rd.jogos.forEach(function(m){r.push([rd.nome,m.A,m.setsA,m.setsB,m.B,m.vencedor||''])})});
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r),'Chave');
+      if(d.dupla&&d.dupla.champ){
+        var dm=[['Chave de Vencedores'],['Jogador A','Sets A','Sets B','Jogador B','Vencedor']];
+        (d.dupla.vencedores||[]).forEach(function(rd){(rd.jogos||[]).forEach(function(m){dm.push([m.A,m.setsA,m.setsB,m.B,m.vencedor||''])})});
+        dm.push([]);dm.push(['CAMPEAO',d.dupla.champ]);
+        XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(dm),'Dupla');
+      }
+      var p=[['Jogador A','Sets','Jogador B','Vencedor','Formato','Data']];
+      (d.partidas||[]).forEach(function(m){p.push([m.A,(m.setsA||0)+'x'+(m.setsB||0),m.B,m.vencedor||'',m.formato||'',m.data||''])});
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(p),'Partidas');
+      XLSX.writeFile(wb,'campeonato.xlsx');
+    });
+  });
+}
+function importarArquivo(input,targetId){
+  var f=input.files[0];
+  if(!f)return;
+  var nome=f.name.toLowerCase();
+  if(nome.endsWith('.xlsx')||nome.endsWith('.xls')){
+    carregarSheetJS(function(){
+      var leitor=new FileReader();
+      leitor.onload=function(ev){
+        try{
+          var wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+          var nomes=[];
+          wb.SheetNames.forEach(function(sn){
+            var ws=wb.Sheets[sn];
+            var linhas=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+            linhas.forEach(function(linha){
+              linha.forEach(function(cel){
+                var s=String(cel||'').trim();
+                if(s)nomes.push(s);
+              });
+            });
+          });
+          aplicarNomesImportados(parseNomesCSV(nomes.join('\n')),targetId);
+        }catch(err){alert('Erro ao ler o Excel: '+err.message)}
+        input.value='';
+      };
+      leitor.readAsArrayBuffer(f);
+    });
+    return;
+  }
+  var leitor=new FileReader();
+  leitor.onload=function(ev){aplicarNomesImportados(parseNomesCSV(ev.target.result),targetId);input.value=''};
+  leitor.onerror=function(){alert('Nao foi possivel ler o arquivo.');input.value=''};
+  leitor.readAsText(f,'utf-8');
+}
+function distribSerpentina(){return (document.getElementById('selDist').value||'serpentina')==='serpentina'}
+async function autoSerpentina(){
+  var d=await get();
+  if(!(d.jogadores||[]).length)return;
+  if(d.modo==='grupos'||d.modo==='misto'){await criarGrupos()}else{await gerarChave()}
+}
+async function setModo(m){await post('/api/modo',{modo:m});await autoSerpentina();atualizar()}
+async function setFormato(fase,f){await post('/api/formato',{fase:fase,formato:+f});atualizar()}
+async function setAvancar(n){await post('/api/avancar',{avancar:+n});atualizar()}
+async function criarGrupos(){
+  var st=await get();
+  if(!(st.jogadores||[]).length){alert('Cadastre os jogadores primeiro.');return}
+  await post('/api/grupos',{numero:+document.getElementById('numGrupos').value,distribuicao:document.getElementById('selDist').value,ranking:document.getElementById('ranking').value});
+  atualizar()
+}
+async function gerarChave(){await post('/api/gerar_chave');atualizar()}
+async function mudarDistribuicao(v){
+  document.querySelectorAll('.selDistAll').forEach(function(s){s.value=v});
+  await post('/api/distribuicao',{distribuicao:v});
+  await autoSerpentina();
+  atualizar()
+}
+function moverJogador(nome,grupo){post('/api/mover',{jogador:nome,grupo:+grupo}).then(atualizar)}
+var dragNome=null;
+function dgStart(ev){
+  var el=ev.target;
+  if(!el.classList.contains('gj'))el=el.parentNode.closest('.gj')||el;
+  if(!el||!el.classList.contains('gj'))return;
+  dragNome=el.getAttribute('data-nome');
+  ev.dataTransfer.setData('text/plain',dragNome);
+  ev.dataTransfer.effectAllowed='move';
+  el.classList.add('gj-drag');
+}
+function dgEnd(ev){
+  if(ev.target&&ev.target.classList)ev.target.classList.remove('gj-drag');
+  document.querySelectorAll('.gc.over').forEach(function(x){x.classList.remove('over')});
+  document.querySelectorAll('.gslot.over').forEach(function(x){x.classList.remove('over')});
+  dragNome=null;
+}
+function dgOver(ev){
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect='move';
+  var alvo=ev.target.closest('.gc');
+  document.querySelectorAll('.gc.over').forEach(function(x){x.classList.remove('over')});
+  if(alvo)alvo.classList.add('over');
+}
+function slotOver(ev){
+  ev.preventDefault();
+  ev.stopPropagation();
+  ev.dataTransfer.dropEffect='move';
+  var g=ev.target.closest('.gc');
+  document.querySelectorAll('.gc.over').forEach(function(x){x.classList.remove('over')});
+  document.querySelectorAll('.gslot.over').forEach(function(x){x.classList.remove('over')});
+  if(g)g.classList.add('over');
+  if(ev.target.classList.contains('gslot'))ev.target.classList.add('over');
+}
+function slotLeave(ev){
+  ev.target.classList.remove('over');
+}
+function dgDrop(ev,grupoIdx){
+  ev.preventDefault();
+  document.querySelectorAll('.gc.over').forEach(function(x){x.classList.remove('over')});
+  var nome=dragNome||ev.dataTransfer.getData('text/plain');
+  if(nome&&grupoIdx>=0)moverJogador(nome,grupoIdx);
+  dragNome=null;
+}
+function slotDrop(ev,grupoIdx,pos){
+  ev.preventDefault();
+  ev.stopPropagation();
+  document.querySelectorAll('.gslot.over').forEach(function(x){x.classList.remove('over')});
+  document.querySelectorAll('.gc.over').forEach(function(x){x.classList.remove('over')});
+  var nome=dragNome||ev.dataTransfer.getData('text/plain');
+  if(nome){
+    post('/api/reordenar',{jogador:nome,grupo:+grupoIdx,pos:+pos}).then(atualizar);
+  }
+  dragNome=null;
+}
+async function zerar(){if(confirm('CANCELAR CAMPEONATO? Isso apagara TODOS os dados, inclusive os jogadores cadastrados.')){await post('/api/zerar');atualizar()}}
+async function iniciar(){
+  var r=await fetch('/api/iniciar',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  var j=await r.json();
+  if(!j.ok){alert(j.erro||'Erro');atualizar();return}
+  alert('Campeonato iniciado! Os jogos passarao a ser chamados no placar.');
+  atualizar();
+}
+async function registrarManual(){
+  var a=document.getElementById('selA').value,b=document.getElementById('selB').value;
+  if(!a||!b||a==b){alert('Escolha dois jogadores diferentes');return}
+  var t=document.getElementById('setsText').value;
+  var r=await fetch('/api/partida',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jogadorA:a,jogadorB:b,sets:t})});
+  var j=await r.json();
+  if(!j.ok){alert(j.erro||'Erro');return}
+  document.getElementById('setsText').value='';
+  atualizar()
+}
+function jogadoresDoGrupo(d,idx){
+  var em={};
+  (d.em_mesas||[]).forEach(function(x){if(x&&x.length){if(x[0])em[x[0]]=1;if(x[1])em[x[1]]=1}});
+  emNomes=em;
+  var base;
+  if((d.modo==='grupos'||d.modo==='misto')&&idx>=0&&d.grupos&&d.grupos[idx])base=d.grupos[idx].jogadores.slice();
+  else{
+    var mapa={},out=[];
+    (d.pares_pendentes||[]).forEach(function(par){
+      if(!(par[0] in mapa)){mapa[par[0]]=1;out.push(par[0])}
+      if(!(par[1] in mapa)){mapa[par[1]]=1;out.push(par[1])}
+    });
+    base=out;
+  }
+  return base;
+}
+var NOME_RODADA=['Final','Semifinal','Quartas de Final','Oitavas de Final'];
+function nomeRodada(idx,total){var n=total-idx;if(n-1<NOME_RODADA.length)return NOME_RODADA[n-1];return 'Rodada '+n}
+function jogoHTML(m){
+  var a=m.A||'<span class="bye">BYE</span>',b=m.B||'<span class="bye">BYE</span>';
+  var res=m.vencedor?('<b class="venc">'+m.vencedor+(m.A&&m.B?(' ('+m.setsA+'x'+m.setsB+')'):' (BYE)')+'</b>'):'<b class="bye">pendente</b>';
+  return '<div class="jogo"><b>'+a+'</b><b>x</b><b>'+b+'</b>'+res+'</div>';
+}
+function renderCopa(rodadas,champ,rotulo,subtitulo,semPlacar){
+  var R=rodadas.length;
+  if(!R)return '<span class="bye">Sem chave.</span>';
+  var SLOT=30,MW=150,GW=44,CW=MW+GW;
+  var T=Math.pow(2,R);
+  var HR=R-1;
+  var sideW=HR*CW;
+  var baseH=(R===1)?2*SLOT:(T/2)*SLOT;
+  var cy=baseH/2;
+  var gap=46;
+  var finalLeft=sideW+gap;
+  var rightOff=finalLeft+MW+gap;
+  var W=sideW+gap+MW+gap+sideW;
+  var champTop=cy+38;
+  var H=champTop+(subtitulo?80:58);
+  var partes=['<div class="bracket"><div style="position:relative;width:'+W+'px;height:'+H+'px;margin:8px auto">'];
+  function card(m,x,y){
+    var a=m.A||'BYE',b=m.B||'BYE';
+    var vA='',vB='';
+    if(!semPlacar){
+      if(m.vencedor&&m.A&&m.vencedor==a)vA=m.setsA;
+      if(m.vencedor&&m.B&&m.vencedor==b)vB=m.setsB;
+    }
+    return '<div class="mcard" style="left:'+x+'px;top:'+(y-SLOT)+'px;width:'+MW+'px;height:'+(2*SLOT-6)+'px">'
+      +'<div class="j'+(m.vencedor==a?' win':'')+'"><span>'+a+'</span><span>'+(vA!==''?vA:'')+'</span></div>'
+      +'<div class="j'+(m.vencedor==b?' win':'')+'"><span>'+b+'</span><span>'+(vB!==''?vB:'')+'</span></div>'
+      +'</div>';
+  }
+  if(HR>0){
+    for(var sr=0;sr<HR;sr++){
+      var n2=T/Math.pow(2,sr+2);
+      rodadas[sr].forEach(function(m){
+        var g=(m.pos!=null)?m.pos:rodadas[sr].indexOf(m);
+        if(g<0)return;
+        var side=(g<n2)?0:1;
+        var ii=g-side*n2;
+        var line=Math.pow(2,sr+1)*ii+Math.pow(2,sr)+1;
+        var y=(line-1)*SLOT;
+        var lx=sr*CW;
+        var X=(side===0)?lx:(rightOff+sideW-lx-MW);
+        if(sr<HR-1){
+          var k=Math.floor(ii/2);
+          var jline=Math.pow(2,sr+2)*k+Math.pow(2,sr+1)+1;
+          var jy=(jline-1)*SLOT;
+          var xv=lx+MW,hw=GW/2;
+          var VX=(side===0)?xv:(rightOff+sideW-xv-2);
+          partes.push('<div class="linha" style="left:'+VX+'px;top:'+Math.min(y,jy)+'px;width:2px;height:'+Math.abs(jy-y)+'px"></div>');
+          var HX=(side===0)?xv:(rightOff+sideW-xv-hw);
+          partes.push('<div class="linha" style="left:'+HX+'px;top:'+(jy-1)+'px;width:'+hw+'px;height:2px"></div>');
+        }
+        if(sr>0){
+          var hw2=GW/2;
+          var HX2=(side===0)?(lx-hw2):(rightOff+sideW-lx);
+          partes.push('<div class="linha" style="left:'+HX2+'px;top:'+(y-1)+'px;width:'+hw2+'px;height:2px"></div>');
+        }
+        partes.push(card(m,X,y));
+      });
+    }
+    var fl=finalLeft,fr=fl+MW;
+    var lastRight=(HR-1)*CW+MW;
+    partes.push('<div class="linha" style="left:'+lastRight+'px;top:'+(cy-1)+'px;width:'+(fl-lastRight)+'px;height:2px"></div>');
+    var glastLeft=rightOff+sideW-(HR-1)*CW-MW;
+    partes.push('<div class="linha" style="left:'+fr+'px;top:'+(cy-1)+'px;width:'+(glastLeft-fr)+'px;height:2px"></div>');
+  }
+  var fm=rodadas[R-1][0];
+  if(fm)partes.push(card(fm,finalLeft,cy));
+  var fc=finalLeft+MW/2;
+  partes.push('<div class="linha" style="left:'+(fc-1)+'px;top:'+(cy+SLOT-6)+'px;width:2px;height:'+(champTop-(cy+SLOT-6))+'px"></div>');
+  partes.push('<div class="campeao" style="left:'+(fc-MW/2)+'px;top:'+champTop+'px;width:'+MW+'px;height:'+(subtitulo?66:54)+'px"><div>'+(champ||rotulo||'CAMPEAO')+'</div>'+(subtitulo?'<div style="font-size:10px;color:#94a3b8;margin-top:3px;line-height:1.2">'+subtitulo+'</div>':'')+'</div>');
+  partes.push('</div></div>');
+  return partes.join('');
+}
+function renderLB(perdedores){
+  var partes=['<div class="wrap" style="align-items:flex-start;gap:20px">'];
+  perdedores.forEach(function(rod,ri){
+    var conteudo=rod.jogos||[];
+    var fila=rod.fila||[];
+    if(!conteudo.length&&!fila.length)return;
+    partes.push('<div style="min-width:150px"><b style="color:#93c5fd;font-size:12px">Rodada '+(ri+1)+'</b>');
+    conteudo.forEach(function(m){
+      var a=m.A||'BYE',b=m.B||'BYE';
+      var vA=(m.vencedor&&m.A&&m.vencedor==a)?m.setsA:'';
+      var vB=(m.vencedor&&m.B&&m.vencedor==b)?m.setsB:'';
+      partes.push('<div style="border:1px solid #334155;border-radius:6px;background:#1e293b;margin:8px 0;font-size:13px">'
+        +'<div class="j'+(m.vencedor==a?' win':'')+'" style="display:flex;justify-content:space-between;padding:3px 8px"><span>'+a+'</span><span>'+(vA!==''?vA:'')+'</span></div>'
+        +'<div class="j'+(m.vencedor==b?' win':'')+'" style="display:flex;justify-content:space-between;padding:3px 8px;border-top:1px solid #334155"><span>'+b+'</span><span>'+(vB!==''?vB:'')+'</span></div>'
+        +'</div>');
+    });
+    fila.forEach(function(p){
+      partes.push('<div style="border:1px dashed #64748b;border-radius:6px;background:#0f172a;margin:8px 0;padding:6px 8px;font-size:13px;color:#facc15">'+p+' <small style="color:#94a3b8">aguardando adversario</small></div>');
+    });
+    partes.push('</div>');
+  });
+  partes.push('</div>');
+  return partes.join('');
+}
+function oppDe(nome){
+  var out=[];
+  paresPendentes.forEach(function(par){
+    if(par[0]===nome&&out.indexOf(par[1])<0)out.push(par[1]);
+    else if(par[1]===nome&&out.indexOf(par[0])<0)out.push(par[0]);
+  });
+  return out;
+}
+function parPendente(a,b){
+  return paresPendentes.some(function(par){return (par[0]===a&&par[1]===b)||(par[0]===b&&par[1]===a)});
+}
+function proximoPendenteLista(){
+  var pend=paresPendentes.filter(function(par){
+    return listaAtual.indexOf(par[0])>=0&&listaAtual.indexOf(par[1])>=0;
+  });
+  return pend[0]||null;
+}
+function montarSel(id,selecionado,excluido){
+  var el=document.getElementById(id);
+  var opcoes=listaAtual.slice();
+  if(id==='selB'){
+    var a=document.getElementById('selA').value;
+    var ops=oppDe(a);
+    opcoes=opcoes.filter(function(p){return ops.indexOf(p)>=0});
+  }
+  var valido=selecionado&&opcoes.indexOf(selecionado)>=0&&selecionado!==excluido;
+  function rot(p){return (emNomes&&emNomes[p])?p+' (em andamento)':p}
+  el.innerHTML=opcoes.filter(function(p){return p!==excluido}).map(function(p){return '<option'+(p==selecionado?' selected':'')+'>'+rot(p)+'</option>'}).join('');
+  if(valido)el.value=selecionado;
+}
+function preencherSeletores(){
+  montarSel('selA',selANome,'');
+  var va=document.getElementById('selA').value;
+  montarSel('selB',selBNome===va?'':selBNome,va);
+  selANome=document.getElementById('selA').value;
+  selBNome=document.getElementById('selB').value;
+}
+function selGrupoAtualizado(){selGrupoIdx=+document.getElementById('selGrupo').value;selANome='';selBNome='';atualizar()}
+function selAAtualizado(){selANome=document.getElementById('selA').value;montarSel('selB',selBNome,selANome);selBNome=document.getElementById('selB').value}
+function selBAtualizado(){selBNome=document.getElementById('selB').value;montarSel('selA',selANome,selBNome);selANome=document.getElementById('selA').value}
+function atualizar(){
+  get().then(function(d){
+    window.__estado=d;
+    mostraAviso(d.aviso);
+    var temJ=(d.jogadores||[]).length>0;
+    var elSJ=document.getElementById('semJogadores');
+    if(elSJ)elSJ.style.display=temJ?'none':'block';
+    var elM=document.getElementById('cardModo');
+    if(elM)elM.style.display=temJ?'block':'none';
+    var elI=document.getElementById('cardIniciar');
+    if(elI)elI.style.display=(temJ&&!(((d.modo=='grupos'||d.modo=='misto')&&(!d.grupos||!d.grupos.length))))?'block':'none';
+    var elR=document.getElementById('cardRegist');
+    if(elR)elR.style.display=(temJ&&!(((d.modo=='grupos'||d.modo=='misto')&&(!d.grupos||!d.grupos.length))))?'block':'none';
+    var todos=d.jogadores.slice();
+    var emMata=(d.modo==='grupos'||d.modo==='misto')&&d.rodadas.length>0;
+    var selG=document.getElementById('selGrupo'),gw=document.getElementById('selGrupoWrap');
+    if((d.modo==='grupos'||d.modo==='misto')&&d.grupos.length>0&&!emMata){
+      gw.style.display='block';
+      var ghtml=d.grupos.map(function(g,i){return '<option value="'+i+'"'+(i===selGrupoIdx?' selected':'')+'>'+g.nome+'</option>'}).join('');
+      render('selGrupo','<option value="-1">Todos</option>'+ghtml);
+      if(selGrupoIdx<-1||selGrupoIdx>d.grupos.length-1){selGrupoIdx=-1;selG.value='-1'}
+    }else{gw.style.display='none';selGrupoIdx=-1}
+    var lista=jogadoresDoGrupo(d,selGrupoIdx);
+    listaAtual=lista;
+    paresPendentes=d.pares_pendentes||[];
+    modoAtual=d.modo;
+    if(selANome&&lista.indexOf(selANome)<0)selANome='';
+    if(selBNome&&lista.indexOf(selBNome)<0)selBNome='';
+    var avf=false;
+    if(selANome&&selBNome&&!parPendente(selANome,selBNome)){
+      var av=proximoPendenteLista();
+      if(av){selANome=av[0];selBNome=av[1];avf=true}
+      else if(selANome||selBNome){selANome='';selBNome='';avf=true}
+    }
+    var sig=selGrupoIdx+'|'+lista.join('|');
+    if(sig!==sigSeletores||avf){
+      sigSeletores=sig;preencherSeletores();
+    }
+    selANome=document.getElementById('selA').value;
+    selBNome=document.getElementById('selB').value;
+    var ej=document.getElementById('jogadores');
+    if(ej.value===salvosJ){salvosJ=d.jogadores.join(', ');ej.value=salvosJ}
+    document.getElementById('modoAbsoluto').style.display=(temJ&&d.modo=='absoluto')?'block':'none';
+    document.getElementById('modoChave').style.display=(temJ&&d.modo=='chave')?'block':'none';
+    document.getElementById('cardGrupos').style.display=(temJ&&(d.modo=='grupos'||d.modo=='misto'||d.grupos.length>0))?'block':'none';
+    document.getElementById('gruposControles').style.display=((d.modo=='grupos'||d.modo=='misto')&&!emMata)?'block':'none';
+    document.getElementById('btnProsseguir').style.display=
+      ((d.modo==='grupos'||d.modo==='misto')&&d.grupos_completos&&(!d.rodadas||!d.rodadas.length))?'':'none';
+    document.getElementById('btnAbsoluto').style.background=d.modo=='absoluto'?'#2563eb':'#475569';
+    document.getElementById('btnGrupos').style.background=d.modo=='grupos'?'#2563eb':'#475569';
+    document.getElementById('btnMisto').style.background=d.modo=='misto'?'#2563eb':'#475569';
+    document.getElementById('btnChave').style.background=d.modo=='chave'?'#2563eb':'#475569';
+    document.getElementById('selFormatoGrupos').value=String(d.formato_grupos||0);
+    document.getElementById('selFormatoMata').value=String(d.formato_mata||0);
+    document.getElementById('selFormatoFinal').value=String(d.formato_final||0);
+    document.getElementById('selAvancar').value=String(d.avancar||2);
+    document.querySelectorAll('.selDistAll').forEach(function(s){s.value=d.distribuicao||'serpentina'});
+    document.getElementById('btnCadastrar').style.background=(d.jogadores&&d.jogadores.length)?'#16a34a':'#2563eb';
+    var ini=!!d.iniciado;
+    var st=document.getElementById('iniciarStatus');
+    var bi=document.getElementById('btnIniciar');
+    ['btnCadastrar','btnGrupos','btnMisto','btnChave','btnAbsoluto','selFormatoGrupos','selFormatoMata','selFormatoFinal','selAvancar','btnCriarGrupos','jogadores','ranking','novoJogador','btnIncluir'].forEach(function(id){var el=document.getElementById(id);if(el)el.disabled=ini});
+    document.querySelectorAll('.btnSortear').forEach(function(b){b.disabled=ini});
+    document.querySelectorAll('.selDistAll').forEach(function(s){s.disabled=ini});
+    var elMC=document.getElementById('selModoChamada');if(elMC)elMC.disabled=ini;
+    document.querySelectorAll('#corpoMesaGrupo select').forEach(function(s){s.disabled=ini});
+    if(ini){
+      st.textContent='● CAMPEONATO EM ANDAMENTO - jogos sendo chamados. Configuracoes bloqueadas; use CANCELAR CAMPEONATO para altera-las.';
+      st.style.color='#4ade80';
+      bi.disabled=true;bi.style.opacity='0.6';
+    }else if(((d.modo==='grupos')||(d.modo==='misto'))&&(!d.grupos||!d.grupos.length)){
+      st.textContent='○ Crie os GRUPOS antes de iniciar o campeonato.';
+      st.style.color='#fbbf24';
+      bi.disabled=true;bi.style.opacity='0.6';
+    }else{
+      st.textContent='○ AGUARDANDO INICIO - nenhum jogo sera chamado ao placar ainda.';
+      st.style.color='#fbbf24';
+      bi.disabled=false;bi.style.opacity='1';
+    }
+    var bc=document.getElementById('btnCriarGrupos');
+    if(bc)bc.style.display=(d.modo=='grupos'||d.modo=='misto')?'':'none';
+    var ws=document.querySelectorAll('.btnSortear');
+    for(var i=0;i<ws.length;i++)ws[i].style.display='';
+    var wfg=document.getElementById('wrapFormatoGrupos');
+    if(wfg)wfg.style.display=(d.modo=='grupos'||d.modo=='misto')?'inline':'none';
+    document.getElementById('lblFormatoMata').textContent=(d.modo=='grupos'||d.modo=='misto')?'Mata-mata':'Sets';
+    var er=document.getElementById('ranking');
+    if(!er.dataset.tocado){
+      er.value=(d.ranking&&d.ranking.length)?d.ranking.join(', '):'';
+    }
+
+    if(d.modo==='absoluto'){
+      var db=d.dupla,html='';
+      if(db){
+        if(db.champ)html+='<div style="margin-bottom:10px"><b class="venc" style="font-size:18px">CAMPEAO: '+db.champ+'</b> '+(d.vice_campeao?'<b style="font-size:16px;color:#e2e8f0"> | 2º LUGAR: '+d.vice_campeao+'</b>':'')+'</div>';
+        html+='<div style="margin:10px 0 4px;color:#93c5fd;font-weight:bold">CHAVE DE VENCEDORES</div>';
+        html+=renderCopa(db.vencedores,db.champ_wb,'VENCEDOR','vencedor da chave de vencedores');
+        if(db.champ_wb&&!db.champ)html+='<div style="margin:6px 0;color:#facc15;font-size:13px">'+db.champ_wb+' venceu a chave de vencedores e disputa a GRANDE FINAL contra o campeao da chave de perdedores.</div>';
+var lb=db.perdedores.filter(function(rod){return (rod.jogos&&rod.jogos.length)||(rod.fila&&rod.fila.length)});
+        if(lb.length){
+          html+='<div style="margin:16px 0 4px;color:#93c5fd;font-weight:bold">CHAVE DE PERDEDORES (quem perde 2x sai)</div>';
+          html+=renderLB(db.perdedores);
+        }
+        if(db.final){
+          html+='<div style="margin:16px 0 4px;color:#facc15;font-weight:bold">GRANDE FINAL</div>';
+          html+=jogoHTML(db.final);
+        }
+        if(db.final2){
+          html+='<div style="margin:16px 0 4px;color:#facc15;font-weight:bold">FINAL DECISIVA</div>';
+          html+=jogoHTML(db.final2);
+        }
+      }
+      if(!html)html='<span class="bye">Clique em "Sortear Chave" para gerar.</span>';
+      render('duplaBrack',html);
+    }
+
+var ng=d.grupos.length;
+    if(ng>0){
+      render('dist','');
+    }
+    render('gruposBox',d.grupos.map(function(g,ejIdx){
+      var nas=g.classificacao.map(function(p){return p.nome});
+      var jogadas={};
+      d.partidas.forEach(function(m){if(nas.indexOf(m.A)>=0&&nas.indexOf(m.B)>=0)jogadas[[m.A,m.B].sort().join('|')]=1});
+      var conf1=[];
+      for(var ci=0;ci<g.jogadores.length;ci++)for(var cj=ci+1;cj<g.jogadores.length;cj++)conf1.push([g.jogadores[ci],g.jogadores[cj]].sort().join('|'));
+      var falta=conf1.filter(function(p){return !jogadas[p]});
+      var completo=!falta.length;
+      var av=completo?Math.min(d.avancar||2,g.classificacao.length):0;
+      var cls=g.classificacao.map(function(p,i){
+        var qua=completo&&i<av;
+        var nota='';
+        if(qua){
+          if(i===0)nota=' <span style="color:#facc15;font-weight:bold">1º</span>';
+          else if(i===1)nota=' <span style="color:#fde68a">2º</span>';
+        }
+        var tdcls=qua?(i===0?' style="color:#facc15;font-weight:bold"':(i===1?' style="color:#fde68a"' :'')):'';
+        return '<tr class="'+(qua?'cla':'')+'"><td'+tdcls+'>'+(i+1)+'</td><td style="text-align:left">'+p.nome+nota+'</td><td>'+p.V+'</td><td>'+p.SetP+'-'+p.SetC+'</td><td>'+(p.PontoP||0)+'-'+(p.PontoC||0)+'</td></tr>'
+      }).join('');
+      var cab='<b style="color:#93c5fd">'+g.nome+'</b>';
+      var cores=['#facc15','#e2e8f0','#f4a261','#93c5fd'];
+      cab+=' <span style="color:#94a3b8;font-size:12px;margin-left:8px">'+conf1.length+' jogos'+(falta.length?' / faltam '+falta.length+' ('+falta.join('; ').replace(/\|/g,'x')+')':' / COMPLETOS')+'</span>';
+      if(completo&&av>0&&g.classificacao.length){
+        cab+=' <span style="display:inline-block;margin-left:10px;padding:2px 10px;border-radius:6px;background:#0c2a1f;border:1px solid #16a34a;font-size:13px">'
+          +g.classificacao.slice(0,av).map(function(p,i){return (i>0?'<span style="color:#94a3b8"> · </span>':'')+(i+1)+'º <span style="color:'+cores[i%4]+'">'+p.nome+'</span>'}).join('')
+          +'</span>';
+      }
+      return '<div class="gc card" draggable="false" ondragover="dgOver(event)" ondrop="dgDrop(event,'+ejIdx+')">'+cab+'<div style="margin:6px 0;line-height:36px">'+(g.jogadores.map(function(j,js){return '<span class="gslot" ondragover="slotOver(event)" ondragleave="slotLeave(event)" ondrop="slotDrop(event,'+ejIdx+','+js+')"></span><span class="gj" draggable="true" data-nome="'+j.replace(/"/g,'&#34;')+'" ondragstart="dgStart(event)" ondragend="dgEnd(event)">'+j+'</span>'}).join('')+'<span class="gslot" ondragover="slotOver(event)" ondragleave="slotLeave(event)" ondrop="slotDrop(event,'+ejIdx+','+g.jogadores.length+')"></span>')+(g.jogadores.length?'':'<span class="bye">vazio - solte jogadores aqui</span>')+'</div>'+(cls?'<table><thead><tr><th>#</th><th>Jogador</th><th>V</th><th>Sets</th><th>Pts+/Pts-</th></tr></thead><tbody>'+cls+'</tbody></table>':'')+'</div>'
+    }).join(''));
+
+    var ge=document.getElementById('gruposElim');
+    if((d.modo==='grupos'||d.modo==='misto')&&d.rodadas.length){
+      var champE='';
+      var lastE=d.rodadas[d.rodadas.length-1];
+      if(lastE&&lastE.jogos&&lastE.jogos[0]&&lastE.jogos[0].vencedor)champE=lastE.jogos[0].vencedor;
+      var scG=ge.querySelector('.bracket');
+      var scL=scG?scG.scrollLeft:0;
+      ge.innerHTML='';
+      if(d.modo==='misto'){
+        ge.innerHTML+='<div style="color:#facc15;font-weight:bold;font-size:15px;margin-bottom:6px">DIVISAO OURO - CHAVE ELIMINATORIA</div>'+renderCopa(d.rodadas.map(function(r){return r.jogos}),champE,'CAMPEAO OURO','campeao da divisao ouro',true);
+        if(champE)ge.innerHTML+='<div style="margin:10px 0;padding:10px 14px;border-radius:10px;background:#1a2a1a;border:1px solid #2d4a2d"><b style="color:#facc15">OURO 1º LUGAR: '+champE+'</b>'+(d.vice_campeao?' &nbsp;·&nbsp; <b style="color:#e2e8f0">2º LUGAR OURO: '+d.vice_campeao+'</b>':'')+'</div>';
+        if(d.rodadas_prata&&d.rodadas_prata.length){
+          var champP='';
+          var lastP=d.rodadas_prata[d.rodadas_prata.length-1];
+          if(lastP&&lastP.jogos&&lastP.jogos[0]&&lastP.jogos[0].vencedor)champP=lastP.jogos[0].vencedor;
+          ge.innerHTML+='<div style="color:#cbd5e1;font-weight:bold;font-size:15px;margin:18px 0 6px">DIVISÃO PRATA (CONSOLAÇÃO)</div>'+renderCopa(d.rodadas_prata.map(function(r){return r.jogos}),champP,'CAMPEAO PRATA','campeao da divisao prata',true);
+          if(champP)ge.innerHTML+='<div style="margin:10px 0;padding:10px 14px;border-radius:10px;background:#1a1a2a;border:1px solid #2d3a4d"><b style="color:#cbd5e1">PRATA 1º LUGAR: '+champP+'</b></div>';
+        }
+      }else{
+        ge.innerHTML='<div style="color:#facc15;font-weight:bold;font-size:15px;margin-bottom:6px">FASE ELIMINATORIA</div>'+renderCopa(d.rodadas.map(function(r){return r.jogos}),champE,'CAMPEAO','campeao do campeonato',true);
+        if(champE)ge.innerHTML+='<div style="margin:10px 0;padding:10px 14px;border-radius:10px;background:#1a2a1a;border:1px solid #2d4a2d"><b style="color:#facc15">1º LUGAR: '+champE+'</b>'+(d.vice_campeao?' &nbsp;·&nbsp; <b style="color:#e2e8f0">2º LUGAR: '+d.vice_campeao+'</b>':'')+'</div>';
+      }
+      ge.style.display='block';
+      var scG2=ge.querySelector('.bracket');
+      if(scG2)scG2.scrollLeft=scL;
+    }else{ge.style.display='none'}
+
+    var chaveRounds=d.rodadas.map(function(r){return r.jogos});
+    var chaveChamp='';
+    if(chaveRounds.length){
+      var ult=chaveRounds[chaveRounds.length-1];
+      if(ult&&ult.length&&ult[0].vencedor)chaveChamp=ult[0].vencedor;
+    }
+    render('rodadas',renderCopa(chaveRounds,chaveChamp,'CAMPEAO','campeao do torneio')+(chaveChamp?('<div style="margin:10px 0;padding:10px 14px;border-radius:10px;background:#1a2a1a;border:1px solid #2d4a2d"><b style="color:#facc15">1º LUGAR: '+chaveChamp+'</b>'+(d.vice_campeao?' &nbsp;·&nbsp; <b style="color:#e2e8f0">2º LUGAR: '+d.vice_campeao+'</b>':'')+'</div>'):''));
+    window.__partidas=d.partidas;
+    render('partidas',d.partidas.map(function(p,i){
+      var det=p.sets&&p.sets.length?(' ('+p.sets.map(function(s){return s[0]+'x'+s[1]}).join(', ')+')'):'';
+      return '<tr><td>'+p.A+'</td><td>'+p.setsA+'x'+p.setsB+det+'</td><td>'+p.B+'</td><td class="venc">'+p.vencedor+'</td><td>'+(p.formato||'')+'</td><td>'+p.data+'</td><td><button onclick="editarPartida('+i+')">Editar</button> <button onclick="desfazerPartida('+i+')">Desfazer</button></td></tr>'}).join('')||'<tr><td colspan="7">Nenhuma partida ainda.</td></tr>');
+    var bl=Object.keys(d.baterias||{}).map(function(mesa){
+      var x=d.baterias[mesa];
+      var b=parseInt(x.b,10);
+      var status=(b<0||isNaN(b))?'--':(b<20?'<b style="color:#f87171">BAIXA</b>':(b<50?'<span style="color:#facc15">MEDIA</span>':'<span style="color:#4ade80">OK</span>'));
+      var cor=b<0?'#1f2937':(b<20?'#7f1d1d':(b<50?'#78350f':'#14532d'));
+      var volt=x.v?x.v+' V':'';
+      return '<tr style="background:'+cor+'"><td>'+mesa+'</td><td style="font-weight:bold">'+(b<0?'--':b+'%')+'</td><td>'+(b<0?'USB':volt)+'</td><td>'+status+'</td><td>'+(x.hora||'')+'</td></tr>';
+    }).join('');
+    document.getElementById('baterias').innerHTML=bl||'<tr><td colspan="5">Nenhuma mesa enviou status ainda.</td></tr>';
+    var online=(d.online||[]).map(function(mesa){
+      var x=d.baterias[mesa]||{};
+      var b=parseInt(x.b,10);
+      var ativo=null;
+      (d.em_mesas||[]).forEach(function(v){if(v&&v.length>=3&&v[0]===mesa)ativo=v});
+      var status,cor;
+      if(ativo){
+        status='EM JOGO: '+ativo[1]+' x '+ativo[2];
+        cor='#facc15';
+      }else{
+        status='LIVRE';
+        cor='#4ade80';
+      }
+      return '<tr><td>'+mesa+'</td><td>'+(x.ip||'-')+'</td><td>'+(b<0?'USB':b+'%')+'</td><td>'+(x.hora||'')+'</td><td style="color:'+cor+';font-weight:bold">'+status+'</td><td>'+
+        (ativo?'<button onclick="cancelarChamada(\''+mesa+'\')">Cancelar</button>':'<button onclick="chamarJogo(\''+mesa+'\')">Chamar jogo</button>')+
+        '</td></tr>';
+    }).join('');
+    render('mesasOnline',online||'<tr><td colspan="6">Nenhuma mesa conectada agora.</td></tr>');
+    render('corpoRenomear',(d.online||[]).map(function(mesa){
+      return '<tr><td>'+mesa+'</td><td><input id="renomear_novo_'+mesa+'" maxlength="16" placeholder="Ex.: Mesa 01"></td><td><button data-mesa="'+mesa+'" onclick="renomearMesa(this)">Salvar</button></td></tr>';
+    }).join('')||'<tr><td colspan="3">Nenhuma mesa conectada agora.</td></tr>');
+    var scm=document.getElementById('selModoChamada');
+    if(scm){
+      scm.value=(d.modo_chamada==='grupos')?'grupos':((d.modo_chamada==='manual')?'manual':'auto');
+      var ex=document.getElementById('explicaChamada');
+      ex.textContent=(d.modo_chamada==='grupos')
+        ?'Voce escolhe qual grupo cada mesa chama. So jogos daquele grupo serao chamados naquela mesa (ideal quando cada grupo joga em mesas fixas).'
+        :((d.modo_chamada==='manual')
+          ?'Nenhuma mesa recebe jogo sozinha. Todas ficam OCIOSAS e o administrador usa o botao "Chamar jogo" para mandar qualquer confronto para qualquer mesa.'
+          :'Cada mesa que estiver livre chama automaticamente o proximo jogo pendente, sem precisar de ninguem escolher.');
+      document.getElementById('wrapMesaGrupo').style.display=(d.modo_chamada==='grupos')?'block':'none';
+      var mg=d.mesa_grupo||{};
+      render('corpoMesaGrupo',(d.online||[]).map(function(mesa){
+        var opts='<option value="">(ociosa)</option>';
+        (d.grupos||[]).forEach(function(g,i){opts+='<option value="'+i+'"'+((mg[mesa]===i)?' selected':'')+'>'+g.nome+'</option>'});
+        return '<tr><td>'+mesa+'</td><td><select data-mesa="'+mesa+'" onchange="mudarModoChamada()">'+opts+'</select></td></tr>';
+      }).join('')||'<tr><td colspan="2">Conecte as mesas para escolher os grupos.</td></tr>');
+    }
+    var mf=document.getElementById('mesaFinal');
+    var opc='<option value="">AUTO — qualquer mesa livre</option>'+(d.online||[]).map(function(m){return '<option value="'+m+'">'+m+'</option>'}).join('');
+    if(mf.options.length!==d.online.length+1||mf.innerHTML!==opc){mf.innerHTML=opc}
+    mf.value=(d.mesa_final||'');
+    var em=d.em_andamento;
+    document.getElementById('partidaChamada').innerHTML=em&&em.A&&em.B
+      ?'<tr><td>'+em.A+'</td><td>'+em.B+'</td><td>'+(em.mesa||'-')+'</td><td>'+(em.desde||'')+'</td></tr>'
+      :'<tr><td colspan="4">Nenhuma partida chamada.</td></tr>';
+  })
+}
+function editarPartida(i){
+  var p=(window.__partidas||[])[i];
+  if(!p)return;
+  var atual=(p.sets||[]).length?p.sets.map(function(s){return s[0]+'x'+s[1]}).join(', '):(p.setsA+'x'+p.setsB);
+  var novo=prompt('Novo resultado de '+p.A+' x '+p.B+'\\nDigite o placar de cada set, separado por virgula (ex.: 11x9, 11x8):', atual);
+  if(novo===null)return;
+  novo=novo.trim();
+  if(!novo)return;
+  fetch('/api/partida/editar',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({jogadorA:p.A,jogadorB:p.B,sets:novo,data:p.data})})
+    .then(function(r){return r.json()}).then(function(j){
+      if(j.ok){atualizar()}else{alert(j.erro||'Falha ao editar.')}});
+}
+function desfazerPartida(i){
+  var p=(window.__partidas||[])[i];
+  if(!p)return;
+  if(!confirm('Desfazer a partida '+p.A+' x '+p.B+'?'))return;
+  fetch('/api/partida/desfazer',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({A:p.A,B:p.B,data:p.data})})
+    .then(function(r){return r.json()}).then(function(j){
+      if(j.ok){atualizar()}else{alert(j.erro||'Falha ao desfazer.')}});
+}
+setInterval(atualizar,3000);
+atualizar();
+</script>
+</body>
+</html>

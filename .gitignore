@@ -1,0 +1,20 @@
+# Builds e artefatos do PyInstaller
+build/
+build_pyi/
+dist/
+
+# Dados de execucao (nao versionar: contem jogadores/grupos/partidas)
+campeonato.json
+campeonato.bak*.json
+
+# Logs e cache do Python
+*.log
+__pycache__/
+*.pyc
+
+# Firmware do placar vive no repo Jaum4010/PlacarPro (com OTA proprio)
+tenis_de_mesa/
+placar_html.h
+
+# Spec antigo (nome/versao anterior do build)
+placar_campeonato.spec
