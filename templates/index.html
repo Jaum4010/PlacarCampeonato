@@ -64,10 +64,6 @@ tr.cla td{background:#1e3a8a;color:#facc15;font-weight:bold}
         <input type="file" id="fileImport" accept=".csv,.txt,.tsv,.xlsx" onchange="importarArquivo(this,'jogadores')">
       </label>
     </div>
-    <div class="wrap" style="margin-top:8px">
-      <input id="novoJogador" placeholder="Incluir jogador apos cadastro..." style="flex:1;min-width:180px">
-      <button id="btnIncluir" onclick="incluirJogador()">Incluir Jogador</button>
-    </div>
   </div>
     <div class="area">
       <label style="color:#93c5fd">RANKING/POSICOES (cole a planilha: melhor primeiro) - opcional
@@ -83,6 +79,10 @@ tr.cla td{background:#1e3a8a;color:#facc15;font-weight:bold}
       <button id="btnCadastrar" onclick="salvarJogadores()">Cadastrar Jogadores</button>
       <button class="danger" onclick="zerar()">CANCELAR CAMPEONATO</button>
     </div>
+    <div class="wrap" style="margin-top:8px">
+      <input id="novoJogador" placeholder="Incluir jogador apos cadastro..." style="flex:1;min-width:180px">
+      <button id="btnIncluir" onclick="incluirJogador()">Incluir Jogador</button>
+    </div>
     <div id="semJogadores" style="display:none;color:#c4b5fd;background:#3b0764;border:1px dashed #a21caf;padding:8px 10px;border-radius:8px;margin-top:10px;font-size:13px">Cadastre os jogadores acima para liberar o Modo, o Iniciar Campeonato e o Registro de partidas.</div>
   </div>
 
@@ -97,7 +97,6 @@ tr.cla td{background:#1e3a8a;color:#facc15;font-weight:bold}
     <div class="wrap" style="margin-top:8px">
       <span id="wrapFormatoGrupos"><label style="color:#93c5fd">Fase de grupos:
         <select id="selFormatoGrupos" onchange="setFormato('grupos',this.value)">
-          <option value="0">Livre</option>
           <option value="1">Melhor de 1 (1 set)</option>
           <option value="3">Melhor de 3</option>
           <option value="5">Melhor de 5</option>
@@ -106,7 +105,6 @@ tr.cla td{background:#1e3a8a;color:#facc15;font-weight:bold}
       </label></span>
       <label style="color:#93c5fd"><span id="lblFormatoMata">Mata-mata</span>:
         <select id="selFormatoMata" onchange="setFormato('mata',this.value)">
-          <option value="0">Livre</option>
           <option value="1">Melhor de 1 (1 set)</option>
           <option value="3">Melhor de 3</option>
           <option value="5">Melhor de 5</option>
@@ -115,7 +113,6 @@ tr.cla td{background:#1e3a8a;color:#facc15;font-weight:bold}
       </label>
       <label style="color:#facc15"><span id="lblFormatoFinal">Final</span>:
         <select id="selFormatoFinal" onchange="setFormato('final',this.value)">
-          <option value="0">Livre</option>
           <option value="1">Melhor de 1 (1 set)</option>
           <option value="3">Melhor de 3</option>
           <option value="5">Melhor de 5</option>
@@ -755,9 +752,9 @@ function atualizar(){
     document.getElementById('btnGrupos').style.background=d.modo=='grupos'?'#2563eb':'#475569';
     document.getElementById('btnMisto').style.background=d.modo=='misto'?'#2563eb':'#475569';
     document.getElementById('btnChave').style.background=d.modo=='chave'?'#2563eb':'#475569';
-    document.getElementById('selFormatoGrupos').value=String(d.formato_grupos||0);
-    document.getElementById('selFormatoMata').value=String(d.formato_mata||0);
-    document.getElementById('selFormatoFinal').value=String(d.formato_final||0);
+    document.getElementById('selFormatoGrupos').value=String(d.formato_grupos||3);
+    document.getElementById('selFormatoMata').value=String(d.formato_mata||3);
+    document.getElementById('selFormatoFinal').value=String(d.formato_final||3);
     document.getElementById('selAvancar').value=String(d.avancar||2);
     document.querySelectorAll('.selDistAll').forEach(function(s){s.value=d.distribuicao||'serpentina'});
     document.getElementById('btnCadastrar').style.background=(d.jogadores&&d.jogadores.length)?'#16a34a':'#2563eb';

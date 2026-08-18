@@ -151,15 +151,32 @@ def puxar_mesa(ip):
                 pass
 
         livre = bool(d.get("livre"))
-        if livre and estado.get("iniciado"):
-            p = proxima_partida(mesa_norm)
-            if p:
-                if not enviar_chamada(ip, p[0], p[1], mesa_norm):
-                    _liberar_mesa(mesa_norm)
-                    print("Placa %s nao aceitou %s x %s - jogo liberado" % (mesa_norm, p[0], p[1]), flush=True)
-        elif not livre and not estado.get("iniciado"):
+        cmp_mesa = bool(d.get("cmp"))
+        if estado.get("iniciado") and livre:
+            # Auto-cura do campeao: se esta mesa perdeu o push (placa estava fora
+            # de _rede, reinicio do servidor ou acao cancelar) e esta livre,
+            # reenvia NA HORA o campeao, sem esperar o throttle de 20s.
+            texto = texto_campeao_atual()
+            if texto and d.get("camp") != texto:
+                try:
+                    body = urllib.parse.urlencode({"acao": "campeao", "nome": texto}).encode()
+                    urllib.request.urlopen("http://%s/api/ordem" % ip, data=body, timeout=2)
+                    print("Campeao reenviado a mesa %s" % mesa_norm, flush=True)
+                except Exception:
+                    pass
+        if estado.get("iniciado"):
+            if livre:
+                p = proxima_partida(mesa_norm)
+                if p:
+                    if not enviar_chamada(ip, p[0], p[1], mesa_norm):
+                        _liberar_mesa(mesa_norm)
+                        print("Placa %s nao aceitou %s x %s - jogo liberado" % (mesa_norm, p[0], p[1]), flush=True)
+        elif cmp_mesa:
+            # Campeonato nao esta ativo mas a placa ainda esta travada em modo
+            # campeonato (sobra de uma sessao anterior): devolve para o modo
+            # livre/avulso, liberando a mesa para uso normal no placar.
             try:
-                body = urllib.parse.urlencode({"acao": "cancelar"}).encode()
+                body = urllib.parse.urlencode({"acao": "avulso"}).encode()
                 urllib.request.urlopen("http://%s/api/ordem" % ip, data=body, timeout=2)
             except Exception:
                 pass
@@ -170,18 +187,36 @@ def puxar_mesa(ip):
         return False
 
 
+def comandar_placas(acao):
+    """Envia um comando /api/ordem para todas as placas conhecidas da rede.
+    Usado para 'campeonato' (armar as mesas ao iniciar) e 'avulso'
+    (liberar as mesas ao zerar/cancelar o campeonato)."""
+    enviado = 0
+    for ip in list(_rede):
+        try:
+            body = urllib.parse.urlencode({"acao": acao}).encode()
+            urllib.request.urlopen("http://%s/api/ordem" % ip, data=body, timeout=2)
+            enviado += 1
+        except Exception:
+            pass
+    return enviado
+
+
 def enviar_chamada(ip, a, b, mesa):
     """Envia uma chamada de partida para a placa. Retorna True se a placa aceitou."""
     try:
         fmt_efetivo = int(formato_da_partida(a, b))
         modo_placa = ("chave" if em_eliminacao() else estado.get("modo", ""))
+        fm = int(estado.get("formato_mata") or 3)
+        fg = int(estado.get("formato_grupos") or 3)
+        ff = int(estado.get("formato_final") or 3)
         body = urllib.parse.urlencode({
             "acao": "chamar", "A": a, "B": b,
             "modo": modo_placa,
             "formato": fmt_efetivo,
-            "formatoMata": fmt_efetivo if modo_placa == "chave" else int(estado.get("formato_mata", 0)),
-            "formatoGrupos": fmt_efetivo if modo_placa != "chave" else int(estado.get("formato_grupos", 0)),
-            "formatoFinal": int(estado.get("formato_final", 0)),
+            "formatoMata": fmt_efetivo if modo_placa == "chave" else fm,
+            "formatoGrupos": fmt_efetivo if modo_placa != "chave" else fg,
+            "formatoFinal": ff,
         }).encode()
         resp = urllib.request.urlopen("http://%s/api/ordem" % ip, data=body, timeout=2).read().decode("utf-8", "ignore")
         return '"ok":true' in resp or '"ok": true' in resp
@@ -236,13 +271,16 @@ def _avancar_mesa(mesa):
     try:
         fmt_efetivo = int(formato_da_partida(p[0], p[1]))
         modo_placa = "chave" if em_eliminacao() else estado.get("modo", "")
+        fm = int(estado.get("formato_mata") or 3)
+        fg = int(estado.get("formato_grupos") or 3)
+        ff = int(estado.get("formato_final") or 3)
         body = urllib.parse.urlencode({
             "acao": "chamar", "A": p[0], "B": p[1],
             "modo": modo_placa,
             "formato": fmt_efetivo,
-            "formatoMata": fmt_efetivo if modo_placa == "chave" else int(estado.get("formato_mata", 0)),
-            "formatoGrupos": fmt_efetivo if modo_placa != "chave" else int(estado.get("formato_grupos", 0)),
-            "formatoFinal": int(estado.get("formato_final", 0)),
+            "formatoMata": fmt_efetivo if modo_placa == "chave" else fm,
+            "formatoGrupos": fmt_efetivo if modo_placa != "chave" else fg,
+            "formatoFinal": ff,
         }).encode()
         resp = urllib.request.urlopen("http://%s/api/ordem" % ip, data=body, timeout=2).read().decode("utf-8", "ignore")
         aceita = '"ok":true' in resp or '"ok": true' in resp
@@ -282,7 +320,7 @@ def varredura_periodica():
                 puxar_mesa(ip)
         except Exception:
             pass
-        time.sleep(5)
+        time.sleep(2)
 
 from flask import Flask, request, jsonify, make_response, Response
 
@@ -451,9 +489,9 @@ estado = {
     "cabecas": [],
     "jogadores": [],
     "modo": "absoluto",
-    "formato_grupos": 0,
-    "formato_mata": 0,
-    "formato_final": 0,
+    "formato_grupos": 3,
+    "formato_mata": 3,
+    "formato_final": 3,
     "avancar": 2,
     "distribuicao": "serpentina",
     "ranking": [],
@@ -515,7 +553,10 @@ def carregar():
                 _log("ERRO promovendo backup para %s: %r" % (ARQUIVO, e))
     for k in ("cabecas", "avancar", "grupos", "formato_grupos", "formato_mata", "formato_final", "chave", "chave_prata"):
         if k not in estado:
-            estado[k] = 2 if k == "avancar" else (0 if k in ("formato_grupos", "formato_mata", "formato_final") else [])
+            estado[k] = 2 if k == "avancar" else (3 if k in ("formato_grupos", "formato_mata", "formato_final") else [])
+    for k in ("formato_grupos", "formato_mata", "formato_final"):
+        if estado.get(k) not in (1, 3, 5, 7):
+            estado[k] = 3
     for k in ("jogadores", "partidas"):
         if k not in estado:
             estado[k] = []
@@ -633,20 +674,25 @@ def final_pendente():
     return None
 
 
+def texto_campeao_atual():
+    """Texto do campeao (+ vice) como exibido nas placas, ou None."""
+    cam = campeao_atual()
+    if not cam:
+        return None
+    vice = vice_campeao_atual()
+    return cam + "  ·  " + vice if vice else cam
+
+
 def notificar_campeao():
     global _campeao_push_ts
     if estado["modo"] == "misto":
         # Modo misto tem 2 campeoes (ouro e prata) e pode haver jogos em
         # andamento nas outras chaves; nao emite mensagem de campeao.
         return
-    cam = campeao_atual()
-    if not cam:
+    texto = texto_campeao_atual()
+    if not texto:
         return
     agora = time.time()
-    texto = cam
-    vice = vice_campeao_atual()
-    if vice:
-        texto = cam + "  ·  " + vice
     # Campeao novo (ou mudou o vice): dispara na hora, sem esperar a julefa de 20s.
     # Nas reincidencias (mesmo texto) mantem o intervalo de 20s para o caso de um
     # celular desconectar/recarregar depois e ainda ver a saudacao.
@@ -1290,14 +1336,17 @@ def eh_partida_final(a, b):
 
 
 def formato_da_partida(a, b):
-    """Formato de sets aplicavel a partida a x b conforme a fase."""
+    """Formato de sets aplicavel a partida a x b conforme a fase.
+    Sem opcao 'livre': todo formato e um valor 1/3/5/7 (melhor de N)."""
     if eh_partida_final(a, b):
-        f = estado.get("formato_final")
-        if f:
-            return f
-    if estado["modo"] in ("chave", "absoluto") or em_eliminacao():
-        return estado["formato_mata"]
-    return estado["formato_grupos"]
+        f = int(estado.get("formato_final") or 3)
+    elif estado["modo"] in ("chave", "absoluto") or em_eliminacao():
+        f = int(estado.get("formato_mata") or 3)
+    else:
+        f = int(estado.get("formato_grupos") or 3)
+    if f not in (1, 3, 5, 7):
+        f = 3
+    return f
 
 
 def pares_pendentes():
@@ -1524,9 +1573,20 @@ def _sets_ok(sets):
 
 
 def eh_jogo_grupos(a, b):
-    """True se o par a x b pertence a fase de grupos (mesmo grupo), mesmo apos a chave ter sido gerada."""
+    """True se o par a x b pertence a fase de grupos (mesmo grupo), mesmo apos a chave ter sido gerada.
+    Uma partida PENDENTE da chave de eliminacao nunca e jogo de grupos: mesmo quando os dois
+    jogadores vieram do mesmo grupo (ex.: a grande final entre o 1o e o 2o do mesmo grupo),
+    o resultado vale pela chave e usa o formato da fase (mata/final), nao o formato dos grupos."""
     if estado["modo"] not in ("grupos", "misto"):
         return False
+    if em_eliminacao():
+        for chave in chaves_ativas():
+            for rod in chave:
+                for m in rod:
+                    if m.get("vencedor"):
+                        continue
+                    if m.get("A") and m.get("B") and par_chave(m["A"], m["B"]) == par_chave(a, b):
+                        return False
     ga = grupo_de(a)
     gb = grupo_de(b)
     return ga is not None and ga is gb
@@ -1584,7 +1644,7 @@ def registrar_partida(a, b, sA, sB, sets=None, mesa=""):
     partida = {"A": a, "B": b, "setsA": sA, "setsB": sB,
                "sets": sets or [],
                "vencedor": a if sA > sB else b,
-               "formato": ("melhor de %d" % fmt) if fmt > 0 else "livre",
+               "formato": ("melhor de %d" % fmt),
                "data": datetime.datetime.now().strftime("%d/%m %H:%M")}
     estado["partidas"].append(partida)
     em = estado.get("em_andamento")
@@ -2011,12 +2071,8 @@ def api_zerar():
     estado["em_andamento"] = None
     estado["iniciado"] = False
     NO_MATCH_WARNING = ""
+    comandar_placas("avulso")
     for ip in list(_rede):
-        try:
-            body = urllib.parse.urlencode({"acao": "cancelar"}).encode()
-            urllib.request.urlopen("http://%s/api/ordem" % ip, data=body, timeout=2)
-        except Exception:
-            pass
         try:
             urllib.request.urlopen("http://%s/api/limpar_campeao" % ip, data=b"", method="POST", timeout=2)
         except Exception:
@@ -2177,6 +2233,7 @@ def api_iniciar():
     estado["iniciado"] = True
     estado["em_andamento"] = None
     estado["campeao_avisado"] = None
+    comandar_placas("campeonato")
     salvar()
     return jsonify({"ok": True})
 
@@ -2190,8 +2247,8 @@ def api_formato():
         f = int(d.get("formato", 0))
     except (TypeError, ValueError):
         f = 0
-    if f not in (0, 1, 3, 5, 7):
-        return jsonify({"ok": False, "erro": "Formato invalido."}), 400
+    if f not in (1, 3, 5, 7):
+        return jsonify({"ok": False, "erro": "Formato invalido. Use 1, 3, 5 ou 7 (melhor de N)."}), 400
     fase = d.get("fase", "grupos")
     if fase == "mata":
         estado["formato_mata"] = f
